@@ -1,20 +1,10 @@
 """
-Step 2 — OpenVINO export for VLA-JEPA.
+OpenVINO export for VLA-JEPA.
 
 Exports the two inference-time subgraphs to ``openvino_model/``:
 
   1. Qwen3-VL-2B  -> openvino_model/qwen3vl/   (optimum-intel multi-IR export)
   2. DiT action head (single flow-matching step) -> openvino_model/action_dit.xml
-
-This script is SELF-CONTAINED: it must not import from ``baseline/VLA-JEPA/``.
-The action-head classes are re-implemented inline below. ``diffusers`` is a
-third-party library and is imported directly (the original source does the same),
-so only thin wrapper classes need restating.
-
-Usage:
-    ./venv-ov/bin/python export.py                  # export both parts
-    ./venv-ov/bin/python export.py --only dit       # DiT only (fast iteration)
-    ./venv-ov/bin/python export.py --only qwen
 """
 
 from __future__ import annotations
@@ -33,12 +23,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from diffusers.models.attention import Attention, FeedForward
 from diffusers.models.embeddings import TimestepEmbedding, Timesteps
-
-# --------------------------------------------------------------------------- #
-# Action-head re-implementation (mirrors cross_attention_dit.py +
-# GR00T_ActionHeader.py, with identical parameter names so the checkpoint
-# state_dict loads verbatim).
-# --------------------------------------------------------------------------- #
 
 DIT_PRESETS = {
     "DiT-B": {"input_embedding_dim": 768, "attention_head_dim": 64, "num_attention_heads": 12},

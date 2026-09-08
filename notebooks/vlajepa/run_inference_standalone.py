@@ -1,18 +1,5 @@
 """
-Step 3 — Standalone OpenVINO inference for VLA-JEPA.
-
-Re-implements ``VLA_JEPA.predict_action`` on top of the IRs produced by
-``export.py``, validates against the Step-1 golden tensors, and benchmarks each
-component.
-
-This script is SELF-CONTAINED: it must not import from ``baseline/VLA-JEPA/``.
-``transformers`` / ``optimum-intel`` are third-party libraries and are used
-directly (in particular ``AutoProcessor``, which owns the Qwen3-VL image
-preprocessing and chat template).
-
-Usage:
-    ./venv-ov/bin/python run_inference_standalone.py --validate
-    ./venv-ov/bin/python run_inference_standalone.py --device GPU.0 --validate --benchmark
+OpenVINO inference for VLA-JEPA.
 """
 
 from __future__ import annotations
