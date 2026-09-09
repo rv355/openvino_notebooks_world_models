@@ -44,9 +44,7 @@ class SinusoidalPositionalEncoding(nn.Module):
     def forward(self, timesteps: torch.Tensor) -> torch.Tensor:
         timesteps = timesteps.float()
         half_dim = self.embedding_dim // 2
-        exponent = -torch.arange(half_dim, dtype=torch.float, device=timesteps.device) * (
-            torch.log(torch.tensor(10000.0)) / half_dim
-        )
+        exponent = -torch.arange(half_dim, dtype=torch.float, device=timesteps.device) * (torch.log(torch.tensor(10000.0)) / half_dim)
         freqs = timesteps.unsqueeze(-1) * exponent.exp()
         return torch.cat([torch.sin(freqs), torch.cos(freqs)], dim=-1)
 
@@ -95,8 +93,7 @@ class TimestepEncoder(nn.Module):
 class AdaLayerNorm(nn.Module):
     """Note the chunk order is (scale, shift), not the more common (shift, scale)."""
 
-    def __init__(self, embedding_dim: int, norm_eps: float = 1e-5,
-                 norm_elementwise_affine: bool = False):
+    def __init__(self, embedding_dim: int, norm_eps: float = 1e-5, norm_elementwise_affine: bool = False):
         super().__init__()
         self.silu = nn.SiLU()
         self.linear = nn.Linear(embedding_dim, embedding_dim * 2)
@@ -142,8 +139,7 @@ class BasicTransformerBlock(nn.Module):
             out_bias=True,
         )
         self.norm3 = nn.LayerNorm(dim, norm_eps, norm_elementwise_affine)
-        self.ff = FeedForward(dim, dropout=dropout, activation_fn=activation_fn,
-                              final_dropout=final_dropout, bias=True)
+        self.ff = FeedForward(dim, dropout=dropout, activation_fn=activation_fn, final_dropout=final_dropout, bias=True)
 
     def forward(self, hidden_states, encoder_hidden_states=None, temb=None):
         norm_hidden_states = self.norm1(hidden_states, temb)
@@ -241,17 +237,14 @@ class FlowmatchingActionHeadSingleStep(nn.Module):
             self.position_embedding = nn.Embedding(cfg["max_seq_len"], self.input_embedding_dim)
 
     def forward(self, noisy_actions, timestep, embodied_tokens, state):
-        state_features = self.state_encoder(state)                     # [B, 1, 768]
+        state_features = self.state_encoder(state)  # [B, 1, 768]
         action_features = self.action_encoder(noisy_actions, timestep)  # [B, 7, 768]
 
         if self.add_pos_embed:
-            pos_ids = torch.arange(action_features.shape[1], dtype=torch.long,
-                                   device=action_features.device)
+            pos_ids = torch.arange(action_features.shape[1], dtype=torch.long, device=action_features.device)
             action_features = action_features + self.position_embedding(pos_ids).unsqueeze(0)
 
-        future_tokens = self.future_tokens.weight.unsqueeze(0).expand(
-            embodied_tokens.shape[0], -1, -1
-        )
+        future_tokens = self.future_tokens.weight.unsqueeze(0).expand(embodied_tokens.shape[0], -1, -1)
         sa_embs = torch.cat((state_features, future_tokens, action_features), dim=1)
 
         model_output = self.model(
@@ -260,7 +253,7 @@ class FlowmatchingActionHeadSingleStep(nn.Module):
             timestep=timestep,
         )
         pred = self.action_decoder(model_output)
-        return pred[:, -self.action_horizon:]
+        return pred[:, -self.action_horizon :]
 
 
 # --------------------------------------------------------------------------- #
@@ -277,10 +270,7 @@ def audit_ops(ov_model: ov.Model, name: str) -> None:
     """Fail loudly on unresolved PyTorch ops (the only case needing a custom kernel)."""
     fw_nodes = [op for op in ov_model.get_ordered_ops() if op.get_type_name() == "FrameworkNode"]
     if fw_nodes:
-        raise RuntimeError(
-            f"{name}: {len(fw_nodes)} unresolved FrameworkNode(s): "
-            f"{[n.get_friendly_name() for n in fw_nodes][:10]}"
-        )
+        raise RuntimeError(f"{name}: {len(fw_nodes)} unresolved FrameworkNode(s): " f"{[n.get_friendly_name() for n in fw_nodes][:10]}")
     print(f"  [{name}] op audit clean — {len(set(op.get_type_name() for op in ov_model.get_ordered_ops()))} distinct op types, no FrameworkNode")
 
 
@@ -318,8 +308,7 @@ def export_dit(args) -> None:
 
     print("  loading fine-tuned weights from checkpoint …")
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    sd = {k[len("action_model."):]: v.float()
-          for k, v in ckpt.items() if k.startswith("action_model.")}
+    sd = {k[len("action_model.") :]: v.float() for k, v in ckpt.items() if k.startswith("action_model.")}
     missing, unexpected = head.load_state_dict(sd, strict=False)
     # position_embedding/future_tokens are always present; anything else missing is a bug.
     if missing:
@@ -386,12 +375,14 @@ def validate_dit(args, head, out_xml: Path, cfg: dict) -> None:
         ref = np.load(golden / f"dit_velocity_step{i}.npy").astype(np.float32)
         t_disc = int(i / float(n_steps) * buckets)
 
-        ov_out = compiled({
-            "noisy_actions": noisy,
-            "timestep": np.array([t_disc], dtype=np.int64),
-            "embodied_tokens": emb,
-            "state": state,
-        })["velocity"]
+        ov_out = compiled(
+            {
+                "noisy_actions": noisy,
+                "timestep": np.array([t_disc], dtype=np.int64),
+                "embodied_tokens": emb,
+                "state": state,
+            }
+        )["velocity"]
 
         with torch.no_grad():
             pt_out = head(
@@ -405,8 +396,7 @@ def validate_dit(args, head, out_xml: Path, cfg: dict) -> None:
         c_pt = cos_sim(ref, pt_out)
         ok = c_ov >= 0.999
         all_pass &= ok
-        print(f"    t={t_disc:4d}  cos(golden, OV)={c_ov:.6f}  "
-              f"cos(golden, re-impl PyTorch)={c_pt:.6f}  {'PASS' if ok else 'FAIL'}")
+        print(f"    t={t_disc:4d}  cos(golden, OV)={c_ov:.6f}  " f"cos(golden, re-impl PyTorch)={c_pt:.6f}  {'PASS' if ok else 'FAIL'}")
 
     print(f"  DiT validation: {'ALL PASS' if all_pass else 'FAILURES PRESENT'}")
 
@@ -433,7 +423,7 @@ def export_qwen(args) -> None:
     print("  loading fine-tuned weights from checkpoint …")
     ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     prefix = "qwen_vl_interface.model.model."
-    sd = {k[len(prefix):]: v.float() for k, v in ckpt.items() if k.startswith(prefix)}
+    sd = {k[len(prefix) :]: v.float() for k, v in ckpt.items() if k.startswith(prefix)}
     if not sd:
         raise RuntimeError(f"no keys with prefix {prefix!r} found in checkpoint")
 
@@ -467,9 +457,7 @@ def export_qwen(args) -> None:
     # the norm has to be removed from the exported graph.
     lm_norm = model.language_model.norm
     if type(lm_norm).__name__ != "Qwen3VLTextRMSNorm":
-        raise RuntimeError(
-            f"expected language_model.norm to be Qwen3VLTextRMSNorm, got {type(lm_norm).__name__}"
-        )
+        raise RuntimeError(f"expected language_model.norm to be Qwen3VLTextRMSNorm, got {type(lm_norm).__name__}")
     model.language_model.norm = torch.nn.Identity()
     print("  replaced language_model.norm with Identity (export pre-norm hidden states)")
 
@@ -499,11 +487,10 @@ def export_qwen(args) -> None:
 
     if args.int4:
         from optimum.intel import OVModelForVisualCausalLM, OVWeightQuantizationConfig
+
         print("  compressing Qwen3-VL weights to INT4 …")
         quantization_config = OVWeightQuantizationConfig(bits=4, group_size=128, ratio=0.8)
-        compressed = OVModelForVisualCausalLM.from_pretrained(
-            out_dir, quantization_config=quantization_config, compile=False
-        )
+        compressed = OVModelForVisualCausalLM.from_pretrained(out_dir, quantization_config=quantization_config, compile=False)
         # `from_pretrained` memory-maps the FP32 .bin files it just read (OpenVINO's
         # default `read_model` behaviour). Calling `save_pretrained(out_dir)` — i.e.
         # writing the compressed weights back into the SAME files that are still
@@ -533,11 +520,9 @@ def export_qwen(args) -> None:
         tok = proc.tokenizer
         n_action_tokens = 28  # action_horizon * 4
         new_tokens = [f"<|action_{i}|>" for i in range(n_action_tokens)] + ["<|embodied_action|>"]
-        added = tok.add_tokens([t for t in new_tokens if t not in tok.get_vocab()],
-                               special_tokens=True)
+        added = tok.add_tokens([t for t in new_tokens if t not in tok.get_vocab()], special_tokens=True)
         emb_id = tok.convert_tokens_to_ids("<|embodied_action|>")
-        print(f"  tokenizer: added {added} special tokens, len={len(tok)}, "
-              f"<|embodied_action|> -> {emb_id}")
+        print(f"  tokenizer: added {added} special tokens, len={len(tok)}, " f"<|embodied_action|> -> {emb_id}")
         if emb_id != 151697:
             raise RuntimeError(
                 f"<|embodied_action|> got id {emb_id}, expected 151697 — token order "

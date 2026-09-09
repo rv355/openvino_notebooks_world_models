@@ -36,8 +36,7 @@ EMBODIED_ACTION_TOKEN_ID = 151697
 ACTION_TOKEN_GROUPS = 3
 
 
-def build_config(config_yaml: Path, dataset_statistics: Path, instruction: str,
-                 unnorm_key: str | None = None, seed: int = 42) -> dict:
+def build_config(config_yaml: Path, dataset_statistics: Path, instruction: str, unnorm_key: str | None = None, seed: int = 42) -> dict:
     """Derive the pipeline config that ``export.py`` / ``run_inference_standalone.py`` read.
 
     Upstream this file is a by-product of the PyTorch baseline run. Every field is in
@@ -55,10 +54,7 @@ def build_config(config_yaml: Path, dataset_statistics: Path, instruction: str,
     stats = json.loads(Path(dataset_statistics).read_text())
     if unnorm_key is None:
         if len(stats) != 1:
-            raise ValueError(
-                f"{dataset_statistics} holds {len(stats)} datasets {list(stats)} — "
-                "pass unnorm_key to choose one"
-            )
+            raise ValueError(f"{dataset_statistics} holds {len(stats)} datasets {list(stats)} — " "pass unnorm_key to choose one")
         unnorm_key = next(iter(stats))
     action_stats = stats[unnorm_key]["action"]
 
@@ -91,9 +87,7 @@ def build_config(config_yaml: Path, dataset_statistics: Path, instruction: str,
         "dit_interleave_self_attention": bool(am["diffusion_model_cfg"]["interleave_self_attention"]),
         "action_model_type": str(am["action_model_type"]),
         "cot_prompt": str(data["CoT_prompt"]),
-        "action_prompt": "".join(
-            action_tok.format(i) * n_per_group for i in range(ACTION_TOKEN_GROUPS)
-        ),
+        "action_prompt": "".join(action_tok.format(i) * n_per_group for i in range(ACTION_TOKEN_GROUPS)),
         "embodied_prompt": embodied_tok * n_embodied,
         "image_size": [res, res],
         "instruction": instruction,
@@ -120,12 +114,7 @@ def make_fixed_input(cfg: dict):
 
 
 def build_prompt(cfg: dict, instruction: str) -> str:
-    return (
-        cfg["cot_prompt"]
-        .replace("{instruction}", instruction)
-        .replace("{actions}", cfg["action_prompt"])
-        .replace("{e_actions}", cfg["embodied_prompt"])
-    )
+    return cfg["cot_prompt"].replace("{instruction}", instruction).replace("{actions}", cfg["action_prompt"]).replace("{e_actions}", cfg["embodied_prompt"])
 
 
 def load_processor(qwen_base: Path):
@@ -142,10 +131,7 @@ def load_processor(qwen_base: Path):
     tok.add_tokens([t for t in new if t not in tok.get_vocab()], special_tokens=True)
     got = tok.convert_tokens_to_ids("<|embodied_action|>")
     if got != EMBODIED_ACTION_TOKEN_ID:
-        raise RuntimeError(
-            f"<|embodied_action|> got id {got}, expected {EMBODIED_ACTION_TOKEN_ID} — "
-            "token order does not match the training tokenizer"
-        )
+        raise RuntimeError(f"<|embodied_action|> got id {got}, expected {EMBODIED_ACTION_TOKEN_ID} — " "token order does not match the training tokenizer")
     return proc
 
 
@@ -180,7 +166,7 @@ def load_qwen_reference(checkpoint: Path, qwen_base: Path):
 
     ckpt = torch.load(checkpoint, map_location="cpu", weights_only=True)
     prefix = "qwen_vl_interface.model.model."
-    sd = {k[len(prefix):]: v.float() for k, v in ckpt.items() if k.startswith(prefix)}
+    sd = {k[len(prefix) :]: v.float() for k, v in ckpt.items() if k.startswith(prefix)}
     if not sd:
         raise RuntimeError(f"no keys with prefix {prefix!r} in {checkpoint}")
     del ckpt
@@ -199,8 +185,7 @@ def load_dit_reference(checkpoint: Path, config_yaml: Path):
     """Rebuild the action head from the same class ``export.py`` converts."""
     head = FlowmatchingActionHeadSingleStep(load_action_cfg(Path(config_yaml))).eval()
     ckpt = torch.load(checkpoint, map_location="cpu", weights_only=True)
-    sd = {k[len("action_model."):]: v.float()
-          for k, v in ckpt.items() if k.startswith("action_model.")}
+    sd = {k[len("action_model.") :]: v.float() for k, v in ckpt.items() if k.startswith("action_model.")}
     head.load_state_dict(sd, strict=True)
     del ckpt, sd
     return head
@@ -212,15 +197,11 @@ def extract_embodied_tokens(hidden: np.ndarray, input_ids: np.ndarray, cfg: dict
         raise RuntimeError("no <|embodied_action|> position matched — prompt/tokenizer mismatch")
     tokens = hidden[rows, cols, :].reshape(input_ids.shape[0], -1, hidden.shape[-1])
     if tokens.shape[1] != cfg["num_embodied_action_tokens"]:
-        raise RuntimeError(
-            f"extracted {tokens.shape[1]} embodied tokens, "
-            f"expected {cfg['num_embodied_action_tokens']}"
-        )
+        raise RuntimeError(f"extracted {tokens.shape[1]} embodied tokens, " f"expected {cfg['num_embodied_action_tokens']}")
     return tokens
 
 
-def generate_reference(out_dir: Path, cfg: dict, checkpoint: Path, config_yaml: Path,
-                       qwen_base: Path) -> dict:
+def generate_reference(out_dir: Path, cfg: dict, checkpoint: Path, config_yaml: Path, qwen_base: Path) -> dict:
     """Run the full PyTorch pipeline on the fixed observation and save the tensors.
 
     Writes the same file names the OpenVINO scripts expect, so the notebook's reference
@@ -255,8 +236,7 @@ def generate_reference(out_dir: Path, cfg: dict, checkpoint: Path, config_yaml: 
     # A fixed noise draw keeps the whole reference reproducible; in deployment this is
     # sampled fresh every call.
     rng = np.random.default_rng(cfg["rng_seed"])
-    actions = rng.standard_normal(
-        (B, cfg["action_horizon"], cfg["action_dim"]), dtype=np.float32)
+    actions = rng.standard_normal((B, cfg["action_horizon"], cfg["action_dim"]), dtype=np.float32)
     initial_noise = actions.copy()
 
     emb_t = torch.from_numpy(np.ascontiguousarray(embodied, dtype=np.float32))

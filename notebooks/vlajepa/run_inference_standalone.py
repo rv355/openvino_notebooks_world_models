@@ -72,8 +72,7 @@ class VlaJepaOV:
         # bf16's 8-bit mantissa costs real accuracy: cos vs golden drops to 0.9980 and a
         # knife-edge gripper decision (normalized 0.5407 vs the 0.5 threshold) flips.
         ov_config = {"INFERENCE_PRECISION_HINT": "f32"} if device.upper().startswith("CPU") else {}
-        self.qwen = OVModelForVisualCausalLM.from_pretrained(
-            model_dir / "qwen3vl", device=device, ov_config=ov_config)
+        self.qwen = OVModelForVisualCausalLM.from_pretrained(model_dir / "qwen3vl", device=device, ov_config=ov_config)
         self.processor = AutoProcessor.from_pretrained(model_dir / "qwen3vl")
         print(f"    done in {time.perf_counter() - t0:.1f}s")
 
@@ -143,20 +142,14 @@ class VlaJepaOV:
         input_ids = np.asarray(inputs["input_ids"])
         rows, cols = np.nonzero(input_ids == self.emb_token_id)
         if rows.size == 0:
-            raise RuntimeError(
-                f"no token matched embodied id {self.emb_token_id} in the prompt — "
-                "prompt construction or tokenizer is wrong"
-            )
+            raise RuntimeError(f"no token matched embodied id {self.emb_token_id} in the prompt — " "prompt construction or tokenizer is wrong")
         B = input_ids.shape[0]
         tokens = hidden[rows, cols, :].reshape(B, -1, hidden.shape[-1])
         if tokens.shape[1] != self.n_emb_tokens:
-            raise RuntimeError(
-                f"extracted {tokens.shape[1]} embodied tokens, expected {self.n_emb_tokens}"
-            )
+            raise RuntimeError(f"extracted {tokens.shape[1]} embodied tokens, expected {self.n_emb_tokens}")
         return tokens
 
-    def denoise(self, embodied_tokens: np.ndarray, state: np.ndarray,
-                initial_noise: np.ndarray | None = None) -> np.ndarray:
+    def denoise(self, embodied_tokens: np.ndarray, state: np.ndarray, initial_noise: np.ndarray | None = None) -> np.ndarray:
         """4-step flow matching: actions <- actions + dt * velocity."""
         B = embodied_tokens.shape[0]
         if initial_noise is None:
@@ -170,12 +163,14 @@ class VlaJepaOV:
 
         for t in range(self.n_steps):
             t_disc = int(t / float(self.n_steps) * self.buckets)
-            velocity = self.dit({
-                "noisy_actions": np.ascontiguousarray(actions),
-                "timestep": np.array([t_disc] * B, dtype=np.int64),
-                "embodied_tokens": emb,
-                "state": state,
-            })["velocity"]
+            velocity = self.dit(
+                {
+                    "noisy_actions": np.ascontiguousarray(actions),
+                    "timestep": np.array([t_disc] * B, dtype=np.int64),
+                    "embodied_tokens": emb,
+                    "state": state,
+                }
+            )["velocity"]
             actions = actions + dt * velocity
         return actions
 
@@ -206,8 +201,7 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
 
     inputs = policy.preprocess(images, instruction)
     n_emb = int((np.asarray(inputs["input_ids"]) == policy.emb_token_id).sum())
-    print(f"    prompt: {np.asarray(inputs['input_ids']).shape[1]} tokens, "
-          f"{n_emb} embodied action tokens")
+    print(f"    prompt: {np.asarray(inputs['input_ids']).shape[1]} tokens, " f"{n_emb} embodied action tokens")
 
     tokens = policy.encode(inputs)
     g_tokens = np.load(golden / "embodied_action_tokens.npy")
@@ -227,8 +221,7 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
     # 0.99998, gripper bits exact), which is what actually matters for LIBERO.
     passed = c >= 0.995
     ok &= passed
-    print(f"    embodied_action_tokens {tokens.shape}  cos={c:.6f}  "
-          f"{'PASS' if passed else 'FAIL'} (gate 0.995)")
+    print(f"    embodied_action_tokens {tokens.shape}  cos={c:.6f}  " f"{'PASS' if passed else 'FAIL'} (gate 0.995)")
 
     # Per-step velocity, driven by the GOLDEN noisy actions so each step is
     # judged independently of drift accumulated by earlier steps.
@@ -238,12 +231,14 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
         noisy = np.load(golden / f"dit_noisy_actions_step{i}.npy").astype(np.float32)
         ref = np.load(golden / f"dit_velocity_step{i}.npy")
         t_disc = int(i / float(policy.n_steps) * policy.buckets)
-        vel = policy.dit({
-            "noisy_actions": np.ascontiguousarray(noisy),
-            "timestep": np.array([t_disc], dtype=np.int64),
-            "embodied_tokens": emb_g,
-            "state": st,
-        })["velocity"]
+        vel = policy.dit(
+            {
+                "noisy_actions": np.ascontiguousarray(noisy),
+                "timestep": np.array([t_disc], dtype=np.int64),
+                "embodied_tokens": emb_g,
+                "state": st,
+            }
+        )["velocity"]
         c = cos_sim(ref, vel)
         passed = c >= 0.999
         ok &= passed
@@ -256,8 +251,7 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
     c = cos_sim(g_actions, actions)
     passed = c >= 0.990
     ok &= passed
-    print(f"    pred_actions {actions.shape}  cos={c:.6f}  "
-          f"{'PASS' if passed else 'FAIL'} (gate 0.990)")
+    print(f"    pred_actions {actions.shape}  cos={c:.6f}  " f"{'PASS' if passed else 'FAIL'} (gate 0.990)")
 
     raw = unnormalize_actions(actions[0].copy(), policy.cfg["action_norm_stats"])
     g_raw = np.load(golden / "unnormalized_actions.npy")
@@ -268,8 +262,7 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
     c = cos_sim(g_raw[:, :6], raw[:, :6])
     passed = c >= 0.990
     ok &= passed
-    print(f"    unnormalized_actions {raw.shape} cols 0-5  cos={c:.6f}  "
-          f"{'PASS' if passed else 'FAIL'} (gate 0.990)")
+    print(f"    unnormalized_actions {raw.shape} cols 0-5  cos={c:.6f}  " f"{'PASS' if passed else 'FAIL'} (gate 0.990)")
 
     # The gripper column is a hard 0/1 decision taken at a 0.5 threshold. Assert the
     # bits, but only where the GOLDEN normalized value clears the threshold by a
@@ -281,11 +274,9 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
     decisive = np.abs(g_norm - 0.5) >= 0.05
     grip_ok = np.array_equal(raw[decisive, 6], g_raw[decisive, 6])
     ok &= grip_ok
-    print(f"    gripper bits {raw[:, 6]} vs golden {g_raw[:, 6]}  "
-          f"{'PASS' if grip_ok else 'FAIL'} ({int(decisive.sum())}/{decisive.size} decisive)")
+    print(f"    gripper bits {raw[:, 6]} vs golden {g_raw[:, 6]}  " f"{'PASS' if grip_ok else 'FAIL'} ({int(decisive.sum())}/{decisive.size} decisive)")
     for i in np.nonzero(~decisive)[0]:
-        print(f"      step {i} ambiguous: golden normalized {g_norm[i]:.4f} is "
-              f"{abs(g_norm[i] - 0.5):.4f} from the 0.5 threshold — not gated")
+        print(f"      step {i} ambiguous: golden normalized {g_norm[i]:.4f} is " f"{abs(g_norm[i] - 0.5):.4f} from the 0.5 threshold — not gated")
 
     print(f"\n    {'ALL GATES PASS' if ok else 'FAILURES PRESENT'}")
     return ok

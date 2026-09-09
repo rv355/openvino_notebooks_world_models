@@ -13,6 +13,7 @@ not downloaded here.
 Usage:
     python download_checkpoints.py [--output-dir pretrained] [--only qwen,libero]
 """
+
 import argparse
 import shutil
 from pathlib import Path
