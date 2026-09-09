@@ -261,7 +261,7 @@ def validate(policy: VlaJepaOV, golden: Path) -> bool:
 
     raw = unnormalize_actions(actions[0].copy(), policy.cfg["action_norm_stats"])
     g_raw = np.load(golden / "unnormalized_actions.npy")
-    # Score the 6 continuous columns only. Column 6 is a binarized 0/1 gripper bit;
+    # Score the 6 continuous columns only. Column 6 is a thresholded 0/1 gripper bit;
     # mixing it in lets one flipped bit swamp the metric (it drags cos from 0.99998
     # to 0.919) and tells you nothing about the continuous accuracy. It gets its
     # own exact-match check below.
