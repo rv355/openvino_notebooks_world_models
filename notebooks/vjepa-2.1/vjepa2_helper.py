@@ -64,8 +64,7 @@ def detect_arch_from_state_dict(sd: dict, verbose: bool = True) -> dict:
     mlp_hidden = sd["blocks.0.mlp.fc1.weight"].shape[0]
     if verbose:
         n_params = sum(v.numel() for v in sd.values()) / 1e6
-        print(f"Detected architecture: embed_dim={embed_dim}, depth={depth}, "
-              f"num_heads={num_heads}, mlp_hidden={mlp_hidden}  (~{n_params:.0f}M params)")
+        print(f"Detected architecture: embed_dim={embed_dim}, depth={depth}, " f"num_heads={num_heads}, mlp_hidden={mlp_hidden}  (~{n_params:.0f}M params)")
     return make_arch_config(embed_dim, depth, num_heads, mlp_hidden)
 
 
@@ -123,8 +122,8 @@ def build_rope_tables(cfg: dict):
     omega = 1.0 / (10000 ** (torch.arange(dd // 2, dtype=torch.float32) / (dd / 2.0)))
     for axis, pos in enumerate(positions):
         freq = torch.einsum("n,f->nf", pos, omega)
-        cos[:, axis * dd:(axis + 1) * dd] = freq.cos().repeat_interleave(2, dim=-1)
-        sin[:, axis * dd:(axis + 1) * dd] = freq.sin().repeat_interleave(2, dim=-1)
+        cos[:, axis * dd : (axis + 1) * dd] = freq.cos().repeat_interleave(2, dim=-1)
+        sin[:, axis * dd : (axis + 1) * dd] = freq.sin().repeat_interleave(2, dim=-1)
 
     perm = torch.arange(head_dim, dtype=torch.int64).view(-1, 2).flip(-1).flatten()
     signs = torch.ones(head_dim, dtype=torch.float32)
@@ -262,8 +261,8 @@ def split_qkv_weights(state_dict: dict, cfg: dict) -> dict:
         if k.endswith("attn.qkv.weight") or k.endswith("attn.qkv.bias"):
             base, suffix = k.rsplit("qkv.", 1)
             out[f"{base}q_proj.{suffix}"] = v[0:dim]
-            out[f"{base}k_proj.{suffix}"] = v[dim:2 * dim]
-            out[f"{base}v_proj.{suffix}"] = v[2 * dim:3 * dim]
+            out[f"{base}k_proj.{suffix}"] = v[dim : 2 * dim]
+            out[f"{base}v_proj.{suffix}"] = v[2 * dim : 3 * dim]
         else:
             out[k] = v
     return out
@@ -273,8 +272,7 @@ def load_encoder(checkpoint_path, verbose: bool = True):
     """Build the encoder and load weights. Returns ``(model, cfg)``."""
     sd = torch.load(str(checkpoint_path), weights_only=True, map_location="cpu")
     key = "target_encoder" if "target_encoder" in sd else "encoder"
-    enc_sd = {k.replace("module.", "").replace("backbone.", ""): v
-              for k, v in sd[key].items()}
+    enc_sd = {k.replace("module.", "").replace("backbone.", ""): v for k, v in sd[key].items()}
 
     cfg = detect_arch_from_state_dict(enc_sd, verbose=verbose)
     encoder = VJEPAEncoder(cfg)
@@ -329,7 +327,7 @@ def load_video_clip(video_path, num_frames: int = NUM_FRAMES, img_size: int = IM
             next_i += 1
         idx += 1
     cap.release()
-    while len(frames) < num_frames:          # short/truncated videos
+    while len(frames) < num_frames:  # short/truncated videos
         frames.append(frames[-1])
 
     # Resize short side, preserving aspect ratio.
@@ -348,7 +346,7 @@ def load_video_clip(video_path, num_frames: int = NUM_FRAMES, img_size: int = IM
     for f in resized:
         h, w = f.shape[:2]
         y1, x1 = int(round((h - img_size) / 2.0)), int(round((w - img_size) / 2.0))
-        cropped.append(f[y1:y1 + img_size, x1:x1 + img_size])
+        cropped.append(f[y1 : y1 + img_size, x1 : x1 + img_size])
     display_frames = np.stack(cropped).astype(np.uint8)
 
     # [T, H, W, C] -> [1, C, T, H, W], normalized.
@@ -368,8 +366,7 @@ def embedding_metrics(reference: np.ndarray, candidate: np.ndarray) -> dict:
 
     rt = reference.astype(np.float64).reshape(-1, reference.shape[-1])
     ct = candidate.astype(np.float64).reshape(-1, candidate.shape[-1])
-    per_token = np.sum(rt * ct, axis=1) / (
-        np.linalg.norm(rt, axis=1) * np.linalg.norm(ct, axis=1) + 1e-30)
+    per_token = np.sum(rt * ct, axis=1) / (np.linalg.norm(rt, axis=1) * np.linalg.norm(ct, axis=1) + 1e-30)
 
     err_power = float(np.sum((r - c) ** 2))
     return {
@@ -377,6 +374,5 @@ def embedding_metrics(reference: np.ndarray, candidate: np.ndarray) -> dict:
         "mean_abs": float(np.abs(r - c).mean()),
         "cosine": float(r @ c / (np.linalg.norm(r) * np.linalg.norm(c))),
         "worst_token_cosine": float(per_token.min()),
-        "snr_db": 10.0 * np.log10(float(np.sum(r ** 2)) / err_power)
-        if err_power > 0 else float("inf"),
+        "snr_db": 10.0 * np.log10(float(np.sum(r**2)) / err_power) if err_power > 0 else float("inf"),
     }
