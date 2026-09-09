@@ -1,6 +1,6 @@
 # Robot manipulation with VLA-JEPA and OpenVINO
 
-[VLA-JEPA](https://github.com/OpenHelix-Team/VLA-JEPA) is a Vision-Language-Action (VLA) policy for
+[VLA-JEPA](https://github.com/ginwind/VLA-JEPA) is a Vision-Language-Action (VLA) policy for
 robot manipulation. Given camera views and a natural-language instruction such as *"pick up the black
 bowl and place it on the plate"*, it predicts the motion needed to carry out the task —
 continuous robot actions rather than text.
